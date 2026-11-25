@@ -1,0 +1,113 @@
+@using Uni_Attendance.Models
+@model TeamMember
+@{
+    ViewData["Title"] = "Member Details";
+    var assignedProjects = ViewBag.AssignedProjects as List<Project> ?? new List<Project>();
+}
+
+<div class="page-heading">
+    <div>
+        <h2>Member Details</h2>
+        <p class="text-secondary">View team member information and activity.</p>
+    </div>
+
+    <div class="d-flex gap-2">
+        <a asp-action="Edit" asp-route-id="@Model.Id" class="btn btn-primary">
+            <i class="bi bi-pencil"></i> Edit Member
+        </a>
+        <a asp-action="Index" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left"></i> Back to Members
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="content-card text-center h-100">
+            <div class="task-avatar mx-auto mb-3"
+                 style="width: 85px; height: 85px; font-size: 28px;">
+                @Initials(Model.FullName)
+            </div>
+
+            <h4>@Model.FullName</h4>
+            <p class="text-secondary">@Model.Role</p>
+
+            <span class="status-badge @(Model.IsActive ? "status-active" : "status-inactive")">
+                @(Model.IsActive ? "Active" : "Inactive")
+            </span>
+
+            <hr />
+
+            <div class="text-start">
+                <p><i class="bi bi-envelope me-2"></i> @Model.Email</p>
+                @if (!string.IsNullOrWhiteSpace(Model.Phone))
+                {
+                    <p><i class="bi bi-telephone me-2"></i> @Model.Phone</p>
+                }
+                <p><i class="bi bi-calendar me-2"></i> Joined @Model.JoiningDate?.ToString("MMMM yyyy")</p>
+                <p><i class="bi bi-briefcase me-2"></i> @assignedProjects.Count Assigned Projects</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="content-card mb-4">
+            <h5 class="mb-4">Member Overview</h5>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <p class="text-secondary mb-1">Full Name</p>
+                    <h6>@Model.FullName</h6>
+                </div>
+                <div class="col-md-6">
+                    <p class="text-secondary mb-1">Role</p>
+                    <h6>@Model.Role</h6>
+                </div>
+                <div class="col-md-6">
+                    <p class="text-secondary mb-1">Department</p>
+                    <h6>@(string.IsNullOrWhiteSpace(Model.Department) ? "-" : Model.Department)</h6>
+                </div>
+                <div class="col-md-6">
+                    <p class="text-secondary mb-1">Member ID</p>
+                    <h6>@(string.IsNullOrWhiteSpace(Model.MemberCode) ? "-" : Model.MemberCode)</h6>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <h5 class="mb-4">Assigned Projects</h5>
+
+            @if (!assignedProjects.Any())
+            {
+                <p class="text-secondary mb-0">No projects assigned yet.</p>
+            }
+
+            @foreach (var project in assignedProjects)
+            {
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h6>@project.Name</h6>
+                        <p class="text-secondary mb-0">@project.Description</p>
+                    </div>
+                    <span class="status-badge @StatusBadge(project.Status)">@project.Status</span>
+                </div>
+                <div class="progress mb-4" style="height: 7px;">
+                    <div class="progress-bar" style="width:@project.Progress%"></div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@functions {
+    static string Initials(string name) => string.Join(string.Empty,
+        name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(part => part[0]).Take(2));
+
+    static string StatusBadge(string status) => status switch
+    {
+        "Completed" => "status-done",
+        "Planning" => "status-todo",
+        "On Hold" => "status-inactive",
+        _ => "status-in-progress"
+    };
+}

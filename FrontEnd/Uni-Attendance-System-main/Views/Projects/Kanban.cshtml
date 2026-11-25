@@ -1,0 +1,167 @@
+@using Uni_Attendance.Models
+@model IEnumerable<TaskItem>
+@{
+    ViewData["Title"] = "Kanban Board";
+    var tasks = Model.ToList();
+}
+
+<div class="page-heading">
+    <div>
+        <h2>Kanban Board</h2>
+        <p class="text-secondary">Drag tasks between columns to update their status.</p>
+    </div>
+
+    <a asp-controller="Tasks" asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Add New Task
+    </a>
+</div>
+
+@Html.AntiForgeryToken()
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <button class="btn btn-primary btn-sm kanban-filter active" data-filter="all">All Tasks</button>
+    <button class="btn btn-outline-primary btn-sm kanban-filter" data-filter="mine">My Tasks</button>
+    <button class="btn btn-outline-primary btn-sm kanban-filter" data-filter="high">High Priority</button>
+</div>
+
+<div class="kanban-board">
+    @foreach (var status in AppDataStore.TaskStatuses)
+    {
+        var columnTasks = tasks.Where(t => t.Status == status).ToList();
+
+        <div class="kanban-column" data-status="@status">
+            <div class="kanban-column-header">
+                <h5><span class="status-dot @DotClass(status)"></span> @status</h5>
+                <span class="task-count">@columnTasks.Count</span>
+            </div>
+            <div class="kanban-cards">
+                @foreach (var task in columnTasks)
+                {
+                    <div class="kanban-task" draggable="true"
+                         data-task-id="@task.Id"
+                         data-priority="@task.Priority"
+                         data-assignee="@task.AssigneeId">
+                        <span class="priority-badge @PriorityBadge(task.Priority)">@task.Priority</span>
+                        <h6>@task.Title</h6>
+                        <p>@task.Description</p>
+                        <div class="task-footer">
+                            <span><i class="bi bi-calendar"></i> @task.DueDate?.ToString("MMM dd")</span>
+                            <span class="task-avatar">@task.AssigneeInitials</span>
+                        </div>
+                        <a asp-controller="Tasks" asp-action="Edit" asp-route-id="@task.Id"
+                           class="btn btn-sm btn-outline-secondary w-100 mt-3">Edit Task</a>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@functions {
+    static string DotClass(string status) => status switch
+    {
+        "Done" => "bg-success",
+        "In Review" => "bg-warning",
+        "In Progress" => "bg-primary",
+        _ => "bg-secondary"
+    };
+
+    static string PriorityBadge(string priority) => priority switch
+    {
+        "High" => "priority-high",
+        "Low" => "priority-low",
+        _ => "priority-medium"
+    };
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+            let draggedId = null;
+
+            document.querySelectorAll(".kanban-task").forEach(card => {
+                card.addEventListener("dragstart", function (event) {
+                    draggedId = card.dataset.taskId;
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", draggedId);
+                    card.classList.add("dragging");
+                });
+
+                card.addEventListener("dragend", function () {
+                    card.classList.remove("dragging");
+                    document.querySelectorAll(".kanban-column").forEach(col => col.classList.remove("drag-over"));
+                });
+            });
+
+            document.querySelectorAll(".kanban-column").forEach(column => {
+                column.addEventListener("dragover", function (event) {
+                    event.preventDefault();
+                    column.classList.add("drag-over");
+                });
+
+                column.addEventListener("dragleave", function (event) {
+                    if (!column.contains(event.relatedTarget)) column.classList.remove("drag-over");
+                });
+
+                column.addEventListener("drop", async function (event) {
+                    event.preventDefault();
+                    column.classList.remove("drag-over");
+
+                    const id = draggedId || event.dataTransfer.getData("text/plain");
+                    const card = document.querySelector(`.kanban-task[data-task-id="${id}"]`);
+                    const status = column.dataset.status;
+                    if (!card || !status) return;
+
+                    // Move immediately for a responsive feel; revert if the server rejects it.
+                    const previousColumn = card.closest(".kanban-column");
+                    column.querySelector(".kanban-cards").appendChild(card);
+                    updateCounts();
+
+                    try {
+                        const body = new URLSearchParams({ id: id, status: status });
+                        const response = await fetch("/Tasks/Move", {
+                            method: "POST",
+                            headers: { "RequestVerificationToken": token || "" },
+                            body: body
+                        });
+                        const result = await response.json();
+                        if (!result.success) throw new Error(result.message || "Move failed.");
+                        window.showToast("success", "Task moved to " + status + ".");
+                    } catch (error) {
+                        previousColumn.querySelector(".kanban-cards").appendChild(card);
+                        updateCounts();
+                        window.showToast("error", error.message || "Could not move the task.");
+                    }
+                });
+            });
+
+            function updateCounts() {
+                document.querySelectorAll(".kanban-column").forEach(column => {
+                    const count = column.querySelectorAll(".kanban-task").length;
+                    column.querySelector(".task-count").textContent = count;
+                });
+            }
+
+            // Quick filters.
+            document.querySelectorAll(".kanban-filter").forEach(button => {
+                button.addEventListener("click", function () {
+                    document.querySelectorAll(".kanban-filter").forEach(btn => {
+                        btn.classList.remove("btn-primary", "active");
+                        btn.classList.add("btn-outline-primary");
+                    });
+                    button.classList.add("btn-primary", "active");
+                    button.classList.remove("btn-outline-primary");
+
+                    const filter = button.dataset.filter;
+                    document.querySelectorAll(".kanban-task").forEach(card => {
+                        const show = filter === "all" ||
+                            (filter === "high" && card.dataset.priority === "High") ||
+                            (filter === "mine" && card.dataset.assignee === "1");
+                        card.classList.toggle("d-none", !show);
+                    });
+                });
+            });
+        })();
+    </script>
+}

@@ -1,0 +1,86 @@
+@model Uni_Attendance.Models.Project
+@{
+    ViewData["Title"] = "Create Project";
+}
+
+<div class="page-heading">
+    <div>
+        <h2>Create New Project</h2>
+        <p class="text-secondary">Add a new project to your workspace.</p>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-primary">
+        <i class="bi bi-arrow-left"></i> Back
+    </a>
+</div>
+
+<div class="content-card">
+    <form asp-controller="Projects" asp-action="Create" method="post" novalidate>
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" placeholder="Enter project name" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="Status" class="form-label"></label>
+                <select asp-for="Status" class="form-select"
+                        asp-items="new SelectList(Uni_Attendance.Models.AppDataStore.ProjectStatuses)">
+                    <option value="">Select status</option>
+                </select>
+                <span asp-validation-for="Status" class="text-danger"></span>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Description" class="form-label"></label>
+                <textarea asp-for="Description" class="form-control" rows="4"
+                          placeholder="Describe your project"></textarea>
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="StartDate" class="form-label"></label>
+                <input asp-for="StartDate" class="form-control" type="date"
+                       asp-format="{0:yyyy-MM-dd}" />
+                <span asp-validation-for="StartDate" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="Deadline" class="form-label"></label>
+                <input asp-for="Deadline" class="form-control" type="date"
+                       asp-format="{0:yyyy-MM-dd}" />
+                <span asp-validation-for="Deadline" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="MemberIds" class="form-label"></label>
+                <select asp-for="MemberIds" class="form-select" multiple
+                        asp-items="ViewBag.MemberOptions"></select>
+                <span asp-validation-for="MemberIds" class="text-danger"></span>
+                <small class="text-secondary">Hold Ctrl (Cmd on Mac) to select multiple members.</small>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="Priority" class="form-label"></label>
+                <select asp-for="Priority" class="form-select"
+                        asp-items="new SelectList(Uni_Attendance.Models.AppDataStore.Priorities)"></select>
+                <span asp-validation-for="Priority" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="Progress" class="form-label"></label>
+                <input asp-for="Progress" class="form-control" type="number" min="0" max="100" />
+                <span asp-validation-for="Progress" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <a asp-action="Index" class="btn btn-outline-primary">Cancel</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Create Project
+            </button>
+        </div>
+    </form>
+</div>

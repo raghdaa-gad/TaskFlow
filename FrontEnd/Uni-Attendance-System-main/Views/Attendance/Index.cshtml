@@ -1,0 +1,201 @@
+@model Uni_Attendance.Models.AttendanceViewModel
+@{
+    ViewData["Title"] = "Attendance Records";
+}
+
+<div class="page-heading">
+    <div>
+        <h2>Attendance Records</h2>
+        <p>Track and manage student attendance records.</p>
+    </div>
+
+    <button type="button" class="btn btn-primary" id="exportRecords">
+        <i class="bi bi-download"></i> Export Records
+    </button>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-people"></i></div>
+            <div>
+                <p>Total Students</p>
+                <h3>@Model.TotalStudents</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+            <div>
+                <p>Present Today</p>
+                <h3>@Model.PresentToday</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-x-circle"></i></div>
+            <div>
+                <p>Absent Today</p>
+                <h3>@Model.AbsentToday</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h5>Attendance History</h5>
+            <p class="text-secondary mb-0">
+                Recent student attendance activity · @Model.LateToday late today
+            </p>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <input type="date" class="form-control" id="attendanceDate" aria-label="Filter by date" />
+            <select class="form-select" id="attendanceStatus" aria-label="Filter by status">
+                <option value="">All Status</option>
+                <option value="Present">Present</option>
+                <option value="Late">Late</option>
+                <option value="Absent">Absent</option>
+            </select>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="clearAttendanceFilters">
+                Clear
+            </button>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>Student</th>
+                    <th>Student ID</th>
+                    <th>Date</th>
+                    <th>Check In</th>
+                    <th>Status</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+
+            <tbody id="attendanceTableBody">
+                @foreach (var record in Model.Records)
+                {
+                    var dateKey = record.Timestamp.ToString("yyyy-MM-dd");
+                    var dateText = record.Timestamp.ToString("dd MMM yyyy");
+                    var timeText = record.Timestamp.ToString("hh:mm tt");
+
+                    <tr data-date="@dateKey" data-status="@record.Status">
+                        <td>@record.StudentName</td>
+                        <td>@record.StudentId</td>
+                        <td>@dateText</td>
+                        <td>@timeText</td>
+                        <td>
+                            <span class="status-badge @StatusBadge(record.Status)">
+                                @record.Status
+                            </span>
+                        </td>
+                        <td class="text-secondary">@record.Source</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <p class="text-secondary text-center d-none" id="noAttendanceMessage">
+            No attendance records match your filters.
+        </p>
+    </div>
+</div>
+
+@functions {
+    static string StatusBadge(string status) => status switch
+    {
+        "Present" => "status-active",
+        "Late" => "status-in-progress",
+        _ => "status-inactive"
+    };
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            const dateFilter = document.getElementById("attendanceDate");
+            const statusFilter = document.getElementById("attendanceStatus");
+            const clearButton = document.getElementById("clearAttendanceFilters");
+            const exportButton = document.getElementById("exportRecords");
+            const rows = Array.from(document.querySelectorAll("#attendanceTableBody tr"));
+            const emptyMessage = document.getElementById("noAttendanceMessage");
+
+            function visibleRows() {
+                return rows.filter(function (row) {
+                    const matchesDate = !dateFilter.value || row.dataset.date === dateFilter.value;
+                    const matchesStatus = !statusFilter.value || row.dataset.status === statusFilter.value;
+                    return matchesDate && matchesStatus;
+                });
+            }
+
+            function applyFilters() {
+                const shown = visibleRows();
+                rows.forEach(function (row) {
+                    row.classList.toggle("d-none", !shown.includes(row));
+                });
+                emptyMessage.classList.toggle("d-none", shown.length !== 0);
+            }
+
+            dateFilter.addEventListener("change", applyFilters);
+            statusFilter.addEventListener("change", applyFilters);
+
+            clearButton.addEventListener("click", function () {
+                dateFilter.value = "";
+                statusFilter.value = "";
+                applyFilters();
+            });
+
+            exportButton.addEventListener("click", function () {
+                const header = ["Student", "Student ID", "Date", "Check In", "Status", "Source"];
+
+                // Pad columns so Excel/Sheets auto-size them and dates don't show as ####.
+                const minWidths = [20, 14, 16, 14, 12, 10];
+
+                function padded(value, width) {
+                    let text = String(value).replace(/"/g, '""');
+                    while (text.length < width) text += " ";
+                    return '"' + text + '"';
+                }
+
+                const lines = [header.map(function (value, index) {
+                    return padded(value, minWidths[index]);
+                })];
+
+                visibleRows().forEach(function (row) {
+                    const cells = Array.from(row.querySelectorAll("td")).map(function (cell, index) {
+                        return padded(cell.textContent.trim(), minWidths[index]);
+                    });
+                    lines.push(cells);
+                });
+
+                const csv = "\uFEFF" + lines.map(function (line) {
+                    return line.join(",");
+                }).join("\r\n");
+
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "attendance-records.csv";
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                URL.revokeObjectURL(url);
+
+                if (window.showToast) {
+                    window.showToast("success", "Exported " + lines.length + " row(s) to CSV.");
+                }
+            });
+        })();
+    </script>
+}

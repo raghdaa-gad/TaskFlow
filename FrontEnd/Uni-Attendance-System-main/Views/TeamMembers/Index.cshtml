@@ -1,0 +1,197 @@
+@using Uni_Attendance.Models
+@model IEnumerable<TeamMember>
+@{
+    ViewData["Title"] = "Team Members";
+    var members = Model.ToList();
+    var projects = ViewBag.Projects as IReadOnlyList<Project> ?? new List<Project>();
+}
+
+<div class="page-heading">
+    <div>
+        <h2>Team Members</h2>
+        <p class="text-secondary">Manage your team and view member information.</p>
+    </div>
+
+    <a asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-person-plus"></i> Add Member
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-people"></i></div>
+            <div>
+                <p>Total Members</p>
+                <h3>@members.Count</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-person-check"></i></div>
+            <div>
+                <p>Active Members</p>
+                <h3>@members.Count(m => m.IsActive)</h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="stat-icon"><i class="bi bi-person-workspace"></i></div>
+            <div>
+                <p>Team Leaders</p>
+                <h3>@members.Count(m => m.Role is "Team Leader" or "Admin")</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="content-card">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <h5 class="mb-0">All Members</h5>
+
+        <div class="d-flex gap-2">
+            <input type="text" class="form-control" id="memberSearch"
+                   placeholder="Search members..." aria-label="Search members" />
+            <select class="form-select" id="roleFilter" aria-label="Filter by role">
+                <option value="">All Roles</option>
+                @foreach (var role in AppDataStore.Roles)
+                {
+                    <option value="@role">@role</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table custom-table align-middle">
+            <thead>
+                <tr>
+                    <th>Member</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                    <th>Projects</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+
+            <tbody id="memberTableBody">
+                @foreach (var member in members)
+                {
+                    <tr class="member-row"
+                        data-search="@($"{member.FullName} {member.Email} {member.Role} {member.Department}".ToLowerInvariant())"
+                        data-role="@member.Role">
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="task-avatar">@Initials(member.FullName)</span>
+                                <span>@member.FullName</span>
+                            </div>
+                        </td>
+                        <td>@member.Role</td>
+                        <td>@member.Email</td>
+                        <td>@projects.Count(p => member.ProjectIds.Contains(p.Id))</td>
+                        <td>
+                            <span class="status-badge @(member.IsActive ? "status-active" : "status-inactive")">
+                                @(member.IsActive ? "Active" : "Inactive")
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1">
+                                <a asp-action="Details" asp-route-id="@member.Id"
+                                   class="btn btn-sm btn-outline-primary">View</a>
+                                <a asp-action="Edit" asp-route-id="@member.Id"
+                                   class="btn btn-sm btn-outline-secondary">Edit</a>
+                                <button type="button" class="btn btn-sm btn-outline-danger delete-member"
+                                        data-id="@member.Id"
+                                        data-name="@member.FullName"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#deleteMemberModal"
+                                        aria-label="Delete member">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <p class="text-secondary text-center d-none" id="noMembersMessage">
+            No members match your search.
+        </p>
+    </div>
+</div>
+
+<!-- Delete confirmation modal -->
+<div class="modal fade" id="deleteMemberModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content settings-modal">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">Are you sure you want to delete this team member?</p>
+                <strong id="deleteMemberName"></strong>
+                <p class="text-secondary small mt-2 mb-0">
+                    The member will be unassigned from projects and tasks. This cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form asp-action="Delete" method="post">
+                    <input type="hidden" name="id" id="deleteMemberId" value="" />
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Delete Member
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    static string Initials(string name) => string.Join(string.Empty,
+        name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(part => part[0]).Take(2));
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            const searchInput = document.getElementById("memberSearch");
+            const roleFilter = document.getElementById("roleFilter");
+            const rows = Array.from(document.querySelectorAll(".member-row"));
+            const emptyMessage = document.getElementById("noMembersMessage");
+
+            function applyFilter() {
+                const term = searchInput.value.trim().toLowerCase();
+                const role = roleFilter.value;
+                let visible = 0;
+
+                rows.forEach(row => {
+                    const matchesText = !term || row.dataset.search.includes(term);
+                    const matchesRole = !role || row.dataset.role === role;
+                    const show = matchesText && matchesRole;
+                    row.classList.toggle("d-none", !show);
+                    if (show) visible++;
+                });
+
+                emptyMessage.classList.toggle("d-none", visible !== 0);
+            }
+
+            searchInput.addEventListener("input", applyFilter);
+            roleFilter.addEventListener("change", applyFilter);
+
+            document.querySelectorAll(".delete-member").forEach(function (button) {
+                button.addEventListener("click", function () {
+                    document.getElementById("deleteMemberId").value = button.dataset.id;
+                    document.getElementById("deleteMemberName").textContent = button.dataset.name;
+                });
+            });
+        })();
+    </script>
+}

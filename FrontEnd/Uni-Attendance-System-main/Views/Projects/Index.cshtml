@@ -1,0 +1,140 @@
+@using Uni_Attendance.Models
+@model IEnumerable<Project>
+@{
+    ViewData["Title"] = "Projects";
+
+    var projects = Model.ToList();
+}
+
+<div class="page-heading">
+    <div>
+        <h2>Projects</h2>
+        <p class="text-secondary">Manage and track all your projects in one place.</p>
+    </div>
+    <a asp-controller="Projects" asp-action="Create" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> New Project
+    </a>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <span>Total Projects</span>
+            <h3>@projects.Count</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <span>In Progress</span>
+            <h3>@projects.Count(p => p.Status == "In Progress")</h3>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card">
+            <span>Completed</span>
+            <h3>@projects.Count(p => p.Status == "Completed")</h3>
+        </div>
+    </div>
+</div>
+
+@if (!projects.Any())
+{
+    <div class="content-card text-center text-secondary">
+        <i class="bi bi-kanban fs-1 d-block mb-3"></i>
+        No projects yet. Create your first project to get started.
+    </div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var project in projects)
+        {
+            <div class="col-md-6 col-xl-4">
+                <div class="project-card h-100">
+                    <div class="d-flex justify-content-between mb-3">
+                        <span class="status-badge @StatusBadge(project.Status)">@project.Status</span>
+                        <span class="text-secondary">#PR-@project.Id.ToString("000")</span>
+                    </div>
+
+                    <h5>@project.Name</h5>
+                    <p class="text-secondary">@project.Description</p>
+
+                    <div class="d-flex justify-content-between mb-2">
+                        <small class="text-secondary">Progress</small>
+                        <small>@project.Progress%</small>
+                    </div>
+                    <div class="progress mb-3">
+                        <div class="progress-bar" style="width:@project.Progress%"></div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <a asp-controller="Projects" asp-action="Details" asp-route-id="@project.Id"
+                           class="btn btn-outline-primary btn-sm">View Details</a>
+                        <a asp-controller="Projects" asp-action="Edit" asp-route-id="@project.Id"
+                           class="btn btn-outline-secondary btn-sm">Edit</a>
+                        <button type="button" class="btn btn-outline-danger btn-sm delete-project"
+                                data-id="@project.Id"
+                                data-name="@project.Name"
+                                data-bs-toggle="modal"
+                                data-bs-target="#deleteProjectModal"
+                                aria-label="Delete project">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        <span class="ms-auto align-self-center text-secondary small">
+                            <i class="bi bi-calendar3"></i> @project.Deadline?.ToString("dd MMM yyyy")
+                        </span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<!-- Delete confirmation modal -->
+<div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content settings-modal">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-1">Are you sure you want to delete this project?</p>
+                <strong id="deleteProjectName"></strong>
+                <p class="text-secondary small mt-2 mb-0">
+                    Its tasks will also be removed. This action cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form asp-controller="Projects" asp-action="Delete" method="post">
+                    <input type="hidden" name="id" id="deleteProjectId" value="" />
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> Delete Project
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@functions {
+    static string StatusBadge(string status) => status switch
+    {
+        "Completed" => "status-done",
+        "Planning" => "status-todo",
+        "On Hold" => "status-inactive",
+        _ => "status-in-progress"
+    };
+}
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".delete-project").forEach(function (button) {
+            button.addEventListener("click", function () {
+                document.getElementById("deleteProjectId").value = button.dataset.id;
+                document.getElementById("deleteProjectName").textContent = button.dataset.name;
+            });
+        });
+    </script>
+}
