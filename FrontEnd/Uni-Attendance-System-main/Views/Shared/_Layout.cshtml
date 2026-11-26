@@ -1,0 +1,580 @@
+﻿
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <title>@ViewData["Title"] - Uni Attendance</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          rel="stylesheet" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+          rel="stylesheet" />
+
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+
+    <style>
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .action-dropdown {
+            position: relative;
+        }
+
+        .icon-button {
+            position: relative;
+            border: none;
+            background: transparent;
+            color: inherit;
+            font-size: 20px;
+            padding: 8px;
+            cursor: pointer;
+            border-radius: 8px;
+        }
+
+        .icon-button:hover {
+            background: rgba(128, 128, 128, 0.15);
+        }
+
+        .notification-dot {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+        }
+
+        .action-menu {
+            width: 300px;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(128,128,128,.2);
+            background: var(--bg-card);
+            color: inherit;
+            box-shadow: 0 8px 25px rgba(0,0,0,.2);
+        }
+
+        .notification-item {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: rgba(128,128,128,.10);
+            font-size: 13px;
+        }
+
+        .notification-item.unread {
+            border-left: 3px solid #8b5cf6;
+        }
+
+        .notification-item small {
+            display: block;
+            margin-top: 5px;
+            opacity: .65;
+        }
+
+        .profile-menu {
+            width: 230px;
+        }
+
+        .profile-menu .profile-info {
+            padding: 10px;
+            border-bottom: 1px solid rgba(128,128,128,.2);
+            margin-bottom: 8px;
+        }
+
+        .profile-menu button {
+            width: 100%;
+            text-align: left;
+            padding: 9px;
+            border: none;
+            background: transparent;
+            color: inherit;
+            border-radius: 7px;
+        }
+
+        .profile-menu button:hover {
+            background: rgba(128,128,128,.15);
+        }
+
+        .settings-modal {
+            background: var(--bg-card);
+            color: inherit;
+        }
+
+        .light-mode {
+            background: var(--bg-primary) !important;
+            color: var(--text-primary) !important;
+        }
+
+        .light-mode .topbar {
+            background: var(--topbar-bg) !important;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .compact-mode .content-card {
+            padding: 14px !important;
+        }
+
+        .compact-mode .page-content {
+            padding-top: 12px !important;
+            padding-bottom: 12px !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-wrapper">
+
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+
+            <div class="brand">
+                <i class="bi bi-grid-1x2-fill"></i>
+                <span>AttendFlow</span>
+            </div>
+
+            <div class="sidebar-section">
+                <p class="section-title">WORKSPACE</p>
+
+                <a asp-controller="Home" asp-action="Index" class="nav-item">
+                    <i class="bi bi-house"></i>
+                    <span>Dashboard</span>
+                </a>
+
+                <a asp-controller="Projects" asp-action="Index" class="nav-item">
+                    <i class="bi bi-kanban"></i>
+                    <span>Projects</span>
+                </a>
+
+                <a asp-controller="TeamMembers" asp-action="Index" class="nav-item">
+                    <i class="bi bi-people"></i>
+                    <span>Team Members</span>
+                </a>
+
+                <a asp-controller="Tasks" asp-action="Index" class="nav-item">
+                    <i class="bi bi-list-check"></i>
+                    <span>Tasks</span>
+                </a>
+
+                <a asp-controller="Projects" asp-action="Kanban" class="nav-item">
+                    <i class="bi bi-columns-gap"></i>
+                    <span>Kanban Board</span>
+                </a>
+            </div>
+
+            <div class="sidebar-section">
+                <p class="section-title">ATTENDANCE</p>
+
+                <a asp-controller="Attendance" asp-action="Index" class="nav-item">
+                    <i class="bi bi-calendar-check"></i>
+                    <span>Attendance Records</span>
+                </a>
+
+                <a asp-controller="Attendance" asp-action="QRScanner" class="nav-item">
+                    <i class="bi bi-qr-code-scan"></i>
+                    <span>QR Scanner</span>
+                </a>
+            </div>
+
+            <div class="sidebar-bottom">
+                <div class="user-avatar">A</div>
+                <div>
+                    <strong>Admin</strong>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <header class="topbar">
+
+                <div class="d-flex align-items-center gap-3">
+
+                    <button class="btn btn-outline-primary d-md-none"
+                            id="sidebarToggle"
+                            type="button"
+                            aria-label="Toggle sidebar"
+                            aria-expanded="false">
+                        <i class="bi bi-list"></i>
+                    </button>
+
+                    <div>
+                        <h5>@ViewData["Title"]</h5>
+                        <small>University Attendance Management</small>
+                    </div>
+
+                </div>
+
+                <div class="topbar-actions">
+
+                    <!-- Notifications -->
+                    <div class="dropdown action-dropdown">
+                        <button class="icon-button"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                                aria-label="Notifications">
+                            <i class="bi bi-bell"></i>
+                            <span class="notification-dot" id="notificationDot"></span>
+                        </button>
+
+                        <div class="dropdown-menu dropdown-menu-end action-menu">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <strong>Notifications</strong>
+                                <button class="btn btn-sm btn-link text-primary p-0"
+                                        id="markAllRead">
+                                    Mark all read
+                                </button>
+                            </div>
+
+                            <div id="notificationList">
+                                <div class="notification-item unread">
+                                    <strong>New Project Added</strong>
+                                    <div>A new project has been created.</div>
+                                    <small>Just now</small>
+                                </div>
+
+                                <div class="notification-item unread">
+                                    <strong>Attendance Update</strong>
+                                    <div>Attendance records have been updated.</div>
+                                    <small>Today</small>
+                                </div>
+
+                                <div class="notification-item">
+                                    <strong>Welcome to AttendFlow</strong>
+                                    <div>Your dashboard is ready.</div>
+                                    <small>Recently</small>
+                                </div>
+                            </div>
+
+                            <button class="btn btn-sm btn-outline-secondary w-100 mt-2"
+                                    id="clearNotifications">
+                                Clear All
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Theme toggle -->
+                    <button class="icon-button"
+                            id="themeToggle"
+                            type="button"
+                            aria-label="Toggle light or dark theme"
+                            title="Toggle theme">
+                        <i class="bi bi-moon-stars" id="themeIcon"></i>
+                    </button>
+
+                    <!-- Settings -->
+                    <button class="icon-button"
+                            type="button"
+                            data-bs-toggle="modal"
+                            data-bs-target="#settingsModal"
+                            aria-label="Settings">
+                        <i class="bi bi-gear"></i>
+                    </button>
+
+                    <!-- Account -->
+                    <div class="dropdown action-dropdown">
+                        <button class="profile-avatar border-0"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                                aria-label="Account">
+                            A
+                        </button>
+
+                        <div class="dropdown-menu dropdown-menu-end action-menu profile-menu">
+
+                            <div class="profile-info">
+                                <strong>Admin</strong>
+                                <div class="text-secondary small">admin@attendflow.com</div>
+                            </div>
+
+                            <button type="button" id="viewAccount">
+                                <i class="bi bi-person me-2"></i>
+                                Account Information
+                            </button>
+
+                            <button type="button" id="accountSettings">
+                                <i class="bi bi-gear me-2"></i>
+                                Settings
+                            </button>
+
+                            <div class="border-top my-2"></div>
+
+                            <button type="button" id="signOutDemo">
+                                <i class="bi bi-box-arrow-right me-2"></i>
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </header>
+
+            <section class="page-content">
+                @RenderBody()
+            </section>
+
+            <footer class="app-footer">
+                <span>&copy; @DateTime.Now.Year AttendFlow — University Attendance Management</span>
+                <span>
+                    <a asp-controller="Home" asp-action="Index">Dashboard</a> ·
+                    <a asp-controller="Projects" asp-action="Index">Projects</a> ·
+                    <a asp-controller="Tasks" asp-action="Index">Tasks</a>
+                </span>
+            </footer>
+
+        </main>
+
+    </div>
+
+    <!-- Toast notifications (server messages and client actions) -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="appToasts">
+        @if (TempData["SuccessMessage"] is string successMessage)
+        {
+            <div class="toast app-toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>
+                    <strong class="me-auto">Success</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">@successMessage</div>
+            </div>
+        }
+
+        @if (TempData["ErrorMessage"] is string errorMessage)
+        {
+            <div class="toast app-toast" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <i class="bi bi-exclamation-circle-fill text-danger me-2"></i>
+                    <strong class="me-auto">Error</strong>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body">@errorMessage</div>
+            </div>
+        }
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content settings-modal">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-gear me-2"></i>Settings
+                    </h5>
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Appearance</label>
+                        <select class="form-select" id="themeSelect">
+                            <option value="dark">Dark — Midnight</option>
+                            <option value="light">Light — Cloud</option>
+                        </select>
+                    </div>
+
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input" type="checkbox" id="compactToggle">
+                        <label class="form-check-label" for="compactToggle">
+                            Compact Layout
+                        </label>
+                    </div>
+
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="notificationsToggle" checked>
+                        <label class="form-check-label" for="notificationsToggle">
+                            Enable Notifications
+                        </label>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+                        Close
+                    </button>
+                    <button type="button"
+                            class="btn btn-primary"
+                            id="saveSettings">
+                        Save Changes
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Account Information Modal -->
+    <div class="modal fade" id="accountModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content settings-modal">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Account Information</h5>
+                    <button type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <div class="profile-avatar mx-auto mb-2">A</div>
+                        <h5>Admin</h5>
+                    </div>
+
+                    <p><strong>Email:</strong> admin@attendflow.com</p>
+                    <p><strong>Platform:</strong> AttendFlow</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            document.querySelectorAll("#appToasts .toast").forEach(function (element) {
+                bootstrap.Toast.getOrCreateInstance(element, { delay: 4000 }).show();
+            });
+        });
+    </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            // Notifications
+            const notificationList = document.getElementById("notificationList");
+            const notificationDot = document.getElementById("notificationDot");
+
+            function updateNotificationDot() {
+                const unread = notificationList.querySelectorAll(".unread").length;
+                notificationDot.style.display = unread > 0 ? "block" : "none";
+            }
+
+            notificationList.addEventListener("click", function (event) {
+                const item = event.target.closest(".notification-item");
+                if (item) {
+                    item.classList.remove("unread");
+                    updateNotificationDot();
+                }
+            });
+
+            document.getElementById("markAllRead").addEventListener("click", function () {
+                notificationList.querySelectorAll(".unread").forEach(item => {
+                    item.classList.remove("unread");
+                });
+                updateNotificationDot();
+            });
+
+            document.getElementById("clearNotifications").addEventListener("click", function () {
+                notificationList.innerHTML =
+                    '<p class="text-secondary text-center py-3 mb-0">No notifications available.</p>';
+                updateNotificationDot();
+            });
+
+            updateNotificationDot();
+
+            // Settings + two themes
+            const themeSelect = document.getElementById("themeSelect");
+            const themeToggle = document.getElementById("themeToggle");
+            const themeIcon = document.getElementById("themeIcon");
+            const compactToggle = document.getElementById("compactToggle");
+            const notificationsToggle = document.getElementById("notificationsToggle");
+
+            function persistSettings() {
+                localStorage.setItem("attendflow-theme", themeSelect.value);
+                localStorage.setItem("attendflow-compact", compactToggle.checked);
+                localStorage.setItem("attendflow-notifications", notificationsToggle.checked);
+            }
+
+            function applySettings() {
+                const isLight = themeSelect.value === "light";
+
+                document.body.classList.toggle("light-mode", isLight);
+                document.body.classList.toggle("compact-mode", compactToggle.checked);
+
+                themeIcon.className = isLight ? "bi bi-sun" : "bi bi-moon-stars";
+                themeToggle.setAttribute("aria-label",
+                    isLight ? "Switch to dark theme" : "Switch to light theme");
+
+                notificationDot.style.display =
+                    notificationsToggle.checked &&
+                    notificationList.querySelector(".unread") ? "block" : "none";
+
+                document.dispatchEvent(new CustomEvent("themechange", { detail: { light: isLight } }));
+            }
+
+            themeSelect.value = localStorage.getItem("attendflow-theme") || "dark";
+            compactToggle.checked = localStorage.getItem("attendflow-compact") === "true";
+            notificationsToggle.checked = localStorage.getItem("attendflow-notifications") !== "false";
+
+            applySettings();
+
+            themeToggle.addEventListener("click", function () {
+                themeSelect.value = themeSelect.value === "light" ? "dark" : "light";
+                persistSettings();
+                applySettings();
+            });
+
+            document.getElementById("saveSettings").addEventListener("click", function () {
+                persistSettings();
+                applySettings();
+
+                bootstrap.Modal.getInstance(
+                    document.getElementById("settingsModal")
+                ).hide();
+            });
+
+            // Account
+            document.getElementById("viewAccount").addEventListener("click", function () {
+                bootstrap.Modal.getOrCreateInstance(
+                    document.getElementById("accountModal")
+                ).show();
+            });
+
+            document.getElementById("accountSettings").addEventListener("click", function () {
+                bootstrap.Modal.getOrCreateInstance(
+                    document.getElementById("settingsModal")
+                ).show();
+            });
+
+            document.getElementById("signOutDemo").addEventListener("click", function () {
+                alert("Sign out is not connected yet. Authentication will be added with the backend.");
+            });
+
+        });
+    </script>
+
+    @await RenderSectionAsync("Scripts", required: false)
+
+</body>
+</html>

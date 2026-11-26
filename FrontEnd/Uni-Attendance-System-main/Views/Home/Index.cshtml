@@ -1,0 +1,168 @@
+﻿@model Uni_Attendance.Models.DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="welcome-banner d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+        <h3 class="fw-bold">Workspace overview</h3>
+        <p class="mb-0 text-secondary">Here's what's happening with your workspace today.</p>
+    </div>
+    <span class="welcome-badge">
+        <i class="bi bi-stars"></i> Dashboard
+    </span>
+</div>
+
+<div class="dashboard-grid">
+    <div class="stat-card accent-blue">
+        <div class="card-icon"><i class="bi bi-kanban"></i></div>
+        <h3>@Model.TotalProjects</h3>
+        <p>Total Projects</p>
+    </div>
+
+    <div class="stat-card accent-amber">
+        <div class="card-icon"><i class="bi bi-clock-history"></i></div>
+        <h3>@Model.InProgressProjects</h3>
+        <p>In Progress</p>
+    </div>
+
+    <div class="stat-card accent-green">
+        <div class="card-icon"><i class="bi bi-check-circle"></i></div>
+        <h3>@Model.CompletedProjects</h3>
+        <p>Completed Projects</p>
+    </div>
+
+    <div class="stat-card accent-purple">
+        <div class="card-icon"><i class="bi bi-people"></i></div>
+        <h3>@Model.TotalMembers</h3>
+        <p>Team Members</p>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <h5 class="mb-1">Open Tasks</h5>
+            <h2 class="mb-0 text-primary">@Model.OpenTasks</h2>
+            <small class="text-secondary">Tasks not yet marked as Done</small>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="content-card h-100">
+            <h5 class="mb-1">Overdue Tasks</h5>
+            <h2 class="mb-0 text-danger">@Model.OverdueTasks</h2>
+            <small class="text-secondary">Due dates that have passed</small>
+        </div>
+    </div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="fw-bold">Recent Projects</h4>
+    <a asp-controller="Projects" asp-action="Index" class="btn btn-primary-custom">View All</a>
+</div>
+
+<div class="projects-grid">
+    @foreach (var project in Model.RecentProjects)
+    {
+        <a asp-controller="Projects" asp-action="Details" asp-route-id="@project.Id" class="project-card">
+            <div class="project-header">
+                <span class="status-badge @StatusBadge(project.Status)">@project.Status</span>
+                <i class="bi bi-three-dots"></i>
+            </div>
+            <h5>@project.Name</h5>
+            <p>@project.Description</p>
+            <div class="progress">
+                <div class="progress-bar" style="width:@project.Progress%"></div>
+            </div>
+            <small style="color:var(--text-secondary)">@project.Progress% Completed</small>
+        </a>
+    }
+</div>
+
+<div class="row g-3 mt-4">
+    <div class="col-lg-6">
+        <div class="content-card h-100">
+            <h5 class="mb-3">Projects by Status</h5>
+            <canvas id="projectStatusChart" height="220"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="content-card h-100">
+            <h5 class="mb-3">Tasks by Priority</h5>
+            <canvas id="taskPriorityChart" height="220"></canvas>
+        </div>
+    </div>
+</div>
+
+@functions {
+    static string StatusBadge(string status) => status switch
+    {
+        "Completed" => "status-done",
+        "Planning" => "status-todo",
+        "On Hold" => "status-inactive",
+        _ => "status-progress"
+    };
+}
+
+@section Scripts {
+    <script src="~/lib/chart.js/dist/chart.umd.min.js"></script>
+    <script>
+        (function () {
+            let charts = [];
+
+            function renderCharts() {
+                const light = document.body.classList.contains("light-mode");
+                const textColor = light ? "#64748b" : "#aab6c9";
+                const gridColor = light ? "rgba(15,23,42,.08)" : "rgba(148,163,184,.15)";
+                const borderColor = light ? "#ffffff" : "#151d2e";
+
+                Chart.defaults.color = textColor;
+                Chart.defaults.font.family = "Inter, Segoe UI, sans-serif";
+
+                charts.forEach(chart => chart.destroy());
+                charts = [];
+
+                charts.push(new Chart(document.getElementById("projectStatusChart"), {
+                    type: "doughnut",
+                    data: {
+                        labels: @Json.Serialize(Model.StatusLabels),
+                        datasets: [{
+                            data: @Json.Serialize(Model.StatusCounts),
+                            backgroundColor: ["#fbbf24", "#6d8cff", "#34d399", "#fb7185"],
+                            borderColor: borderColor,
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { position: "bottom" } }
+                    }
+                }));
+
+                charts.push(new Chart(document.getElementById("taskPriorityChart"), {
+                    type: "bar",
+                    data: {
+                        labels: @Json.Serialize(Model.PriorityLabels),
+                        datasets: [{
+                            label: "Tasks",
+                            data: @Json.Serialize(Model.PriorityCounts),
+                            backgroundColor: ["#34d399", "#fbbf24", "#fb7185"],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false }, ticks: { color: textColor } },
+                            y: { beginAtZero: true, ticks: { precision: 0, color: textColor }, grid: { color: gridColor } }
+                        }
+                    }
+                }));
+            }
+
+            renderCharts();
+            document.addEventListener("themechange", renderCharts);
+        })();
+    </script>
+}

@@ -1,0 +1,244 @@
+
+@{
+    ViewData["Title"] = "QR Attendance";
+}
+
+@Html.AntiForgeryToken()
+
+<div class="page-heading">
+    <div>
+        <h2>QR Attendance</h2>
+        <p>Generate your personal QR code or scan a student code.</p>
+    </div>
+    <span class="status-badge status-active">System Ready</span>
+</div>
+
+<div class="row g-4">
+
+    <!-- My QR Code -->
+    <div class="col-lg-5">
+        <div class="content-card h-100 text-center">
+            <div class="mb-3">
+                <i class="bi bi-qr-code-scan fs-1 text-primary"></i>
+            </div>
+
+            <h5>My QR Code</h5>
+            <p class="text-secondary small">
+                Show this code to record your attendance.
+            </p>
+
+            <div class="bg-white rounded p-3 d-inline-block my-3">
+                <div id="myQrCode"></div>
+            </div>
+
+            <h6 id="studentName" class="mt-2">Student Demo</h6>
+            <p class="text-secondary small mb-3">Student ID: 2026001</p>
+
+            <button id="downloadQr" class="btn btn-outline-primary">
+                <i class="bi bi-download"></i> Download QR Code
+            </button>
+        </div>
+    </div>
+
+    <!-- QR Scanner -->
+    <div class="col-lg-7">
+        <div class="content-card h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>Scan Student QR</h5>
+                <span class="text-secondary small">Live Detection</span>
+            </div>
+
+            <div id="reader" style="width:100%;"></div>
+
+            <div class="d-flex gap-2 justify-content-center mt-4 flex-wrap">
+                <button id="startScanner" class="btn btn-primary">
+                    <i class="bi bi-camera-video"></i> Start Camera
+                </button>
+
+                <button id="stopScanner" class="btn btn-outline-danger" disabled>
+                    <i class="bi bi-stop-circle"></i> Stop Camera
+                </button>
+            </div>
+
+            <p id="scannerMessage" class="text-secondary text-center mt-3">
+                Press Start Camera to scan a student QR code.
+            </p>
+
+            <div class="mt-4">
+                <h6>Latest Scan</h6>
+                <div id="scanResult" class="p-3 rounded"
+                     style="background:var(--card-bg,#1b2338); overflow-wrap:anywhere;">
+                    No QR Code scanned yet.
+                </div>
+                <div id="scanHistory" class="mt-3 small text-secondary">
+                    No scans yet. The camera stays on after each scan.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+
+            // Generate Student QR Code
+            const studentData = JSON.stringify({
+                studentId: "2026001",
+                studentName: "Student Demo"
+            });
+
+            new QRCode(document.getElementById("myQrCode"), {
+                text: studentData,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+
+            // Download QR Code
+            document.getElementById("downloadQr").addEventListener("click", function () {
+                const qrImage = document.querySelector("#myQrCode img");
+
+                if (qrImage) {
+                    const link = document.createElement("a");
+                    link.href = qrImage.src;
+                    link.download = "My-Student-QR.png";
+                    link.click();
+                }
+            });
+
+            // QR Scanner
+            const scanner = new Html5Qrcode("reader");
+
+            const startButton = document.getElementById("startScanner");
+            const stopButton = document.getElementById("stopScanner");
+            const message = document.getElementById("scannerMessage");
+            const result = document.getElementById("scanResult");
+            const historyBox = document.getElementById("scanHistory");
+
+            let isScanning = false;
+            let lastResult = "";
+            let lastScanAt = 0;
+            let scanCount = 0;
+            const cooldownMs = 2500;
+            const scanHistory = [];
+            const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+
+            // Our QR contains JSON; a plain student ID also works.
+            function extractStudentId(text) {
+                try {
+                    const data = JSON.parse(text);
+                    if (data.studentId) return String(data.studentId).trim();
+                } catch (e) { /* not JSON */ }
+                return text.trim();
+            }
+
+            async function recordAttendance(decodedText) {
+                const studentId = extractStudentId(decodedText);
+                if (!studentId) return null;
+
+                const response = await fetch("/Attendance/CheckIn", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "RequestVerificationToken": tokenInput ? tokenInput.value : ""
+                    },
+                    body: JSON.stringify({
+                        studentId: studentId,
+                        scannedAt: new Date().toISOString()
+                    })
+                });
+
+                return await response.json();
+            }
+
+            startButton.addEventListener("click", async function () {
+                if (isScanning) return;
+
+                try {
+                    await scanner.start(
+                        { facingMode: "environment" },
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        async function (decodedText) {
+                            // Ignore the same code while it stays in front of the camera.
+                            const now = Date.now();
+                            if (decodedText === lastResult && now - lastScanAt < cooldownMs) return;
+
+                            lastResult = decodedText;
+                            lastScanAt = now;
+                            scanCount++;
+
+                            result.textContent = decodedText + " — saving…";
+                            result.className = "p-3 rounded";
+                            message.textContent = "Recording attendance...";
+
+                            try {
+                                const data = await recordAttendance(decodedText);
+
+                                if (data && data.success) {
+                                    result.textContent =
+                                        data.studentName + " · " + data.status + " · " + data.time;
+                                    result.className = "p-3 rounded text-success";
+                                    message.textContent =
+                                        "Recorded " + scanCount + " scan(s). Camera still running.";
+                                    if (window.showToast) {
+                                        window.showToast("success", data.message);
+                                    }
+                                } else {
+                                    result.textContent = decodedText;
+                                    result.className = "p-3 rounded text-danger";
+                                    message.textContent = data ? data.message : "Could not record attendance.";
+                                    if (window.showToast) {
+                                        window.showToast("error", data ? data.message : "Check-in failed.");
+                                    }
+                                }
+                            } catch (error) {
+                                result.textContent = decodedText;
+                                result.className = "p-3 rounded text-danger";
+                                message.textContent = "Check-in error: " + error;
+                                if (window.showToast) {
+                                    window.showToast("error", "Check-in failed.");
+                                }
+                            }
+
+                            const time = new Date().toLocaleTimeString();
+                            const escaped = decodedText
+                                .replace(/&/g, "&amp;")
+                                .replace(/</g, "&lt;")
+                                .replace(/>/g, "&gt;");
+                            scanHistory.unshift("<div>" + time + " — " + escaped + "</div>");
+                            if (scanHistory.length > 5) scanHistory.pop();
+                            historyBox.innerHTML = scanHistory.join("");
+                            // Intentionally no pause/stop here: scanning continues automatically.
+                        },
+                        function () { }
+                    );
+
+                    isScanning = true;
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                    message.textContent = "Camera is running. Point it at a QR Code.";
+
+                } catch (error) {
+                    message.textContent = "Camera error: " + error;
+                }
+            });
+
+            stopButton.addEventListener("click", async function () {
+                if (!isScanning) return;
+
+                await scanner.stop();
+
+                isScanning = false;
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                message.textContent = "Camera stopped.";
+            });
+        });
+    </script>
+}
