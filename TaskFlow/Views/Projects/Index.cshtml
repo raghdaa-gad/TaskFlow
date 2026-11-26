@@ -1,0 +1,36 @@
+﻿@model IEnumerable<TaskFlow.Models.Project>
+
+@{
+    ViewData["Title"] = "Projects";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>المشاريع الحالية</h2>
+        <a asp-action="Create" class="btn btn-primary">+ إضافة مشروع جديد</a>
+    </div>
+
+    <table class="table table-bordered table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>اسم المشروع</th>
+                <th>الوصف</th>
+                <th>تاريخ البداية</th>
+                <th>تاريخ النهاية</th>
+                <th>تاريخ الإنشاء</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.Title</td>
+                    <td>@item.Description</td>
+                    <td>@item.StartDate.ToShortDateString()</td>
+                    <td>@item.EndDate.ToShortDateString()</td>
+                    <td>@item.CreatedAt.ToShortDateString()</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
